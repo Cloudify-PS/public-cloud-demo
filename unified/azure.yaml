@@ -1,0 +1,216 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+imports:
+  - http://cloudify.co/spec/cloudify/4.6/types.yaml
+  - include/infra.yaml
+  - include/app.yaml
+  - plugin:cloudify-azure-plugin
+
+inputs:
+  azure_config:
+    type: cloudify.datatypes.azure.Config
+    default:
+      subscription_id: { get_secret: default_azure_subscription_id }
+      tenant_id: { get_secret: default_azure_tenant_id }
+      client_id: { get_secret: default_azure_client_id }
+      client_secret: { get_secret: default_azure_client_secret }
+
+  azure_location:
+    default: { get_secret: default_azure_location }
+
+  resource_group_name:
+    type: string
+    default: { get_secret: default_azure_resource_group }
+
+  image:
+    description: Image information
+    default:
+      publisher: OpenLogic
+      offer: CentOS
+      sku: 7.6
+      version: latest
+
+  storage_account_name:
+    type: string
+    default: 'jbossstorageaccount'
+
+  size:
+    description: Name of Virtual Machine Size in Azure.
+    default: Standard_B1s
+
+  subnet_name:
+    type: string
+    default: 'default'
+
+  vnet_name:
+    type: string
+    default: 'isaac-vnet'
+
+  public_key_data:
+    type: string
+    default: { get_secret: default_azure_public_key_data }
+
+node_templates:
+  resource_group:
+    type: cloudify.azure.nodes.ResourceGroup
+    properties:
+      azure_config: { get_input: azure_config }
+      name: { get_input: resource_group_name }
+      location: { get_input: azure_location }
+      use_external_resource: true
+
+  storage_account:
+    type: cloudify.azure.nodes.storage.StorageAccount
+    properties:
+      azure_config: { get_input: azure_config }
+      use_external_resource: false
+      name: { get_input: storage_account_name }
+      location: { get_input: azure_location }
+      resource_config:
+        accountType: Standard_LRS
+    relationships:
+      - type: cloudify.azure.relationships.contained_in_resource_group
+        target: resource_group
+
+  public_nic:
+    type: cloudify.azure.nodes.network.NetworkInterfaceCard
+    properties:
+      azure_config: { get_input: azure_config }
+      location: { get_input: azure_location }
+      name: 'jboss_public_nic'
+      primary: true
+    relationships:
+    - type: cloudify.azure.relationships.contained_in_resource_group
+      target: resource_group
+    - type: cloudify.azure.relationships.nic_connected_to_network_security_group
+      target: public_security_group
+    - type: cloudify.azure.relationships.nic_connected_to_ip_configuration
+      target: public_ip_cfg
+
+  public_ip_cfg:
+    type: cloudify.azure.nodes.network.IPConfiguration
+    properties:
+      azure_config: { get_input: azure_config }
+      location: { get_input: azure_location }
+      name: 'jboss_public_ic'
+      resource_config:
+        privateIPAllocationMethod: Dynamic
+    relationships:
+      - type: cloudify.azure.relationships.contained_in_resource_group
+        target: resource_group
+      - type: cloudify.azure.relationships.ip_configuration_connected_to_subnet
+        target: public_subnet
+      - type: cloudify.azure.relationships.ip_configuration_connected_to_public_ip
+        target: public_ip_address
+
+  public_security_group:
+    type: cloudify.azure.nodes.network.NetworkSecurityGroup
+    properties:
+      azure_config: { get_input: azure_config }
+      location: { get_input: azure_location }
+      name: 'jboss_public_sg'
+      resource_config:
+        securityRules:
+          - name: sg_http
+            properties:
+              description: HTTP access
+              protocol: Tcp
+              sourcePortRange: '*'
+              destinationPortRange: 80
+              sourceAddressPrefix: '*'
+              destinationAddressPrefix: '*'
+              priority: 104
+              access: Allow
+              direction: Inbound
+          - name: sg_http_8080
+            properties:
+              description: HTTP access
+              protocol: Tcp
+              sourcePortRange: '*'
+              destinationPortRange: 8080
+              sourceAddressPrefix: '*'
+              destinationAddressPrefix: '*'
+              priority: 103
+              access: Allow
+              direction: Inbound
+          - name: sg_ssh
+            properties:
+              description: SSH access
+              protocol: Tcp
+              sourcePortRange: '*'
+              destinationPortRange: 22
+              sourceAddressPrefix: '*'
+              destinationAddressPrefix: '*'
+              priority: 102
+              access: Allow
+              direction: Inbound
+    relationships:
+      - type: cloudify.azure.relationships.contained_in_resource_group
+        target: resource_group
+
+  virtual_network:
+    type: cloudify.azure.nodes.network.VirtualNetwork
+    properties:
+      azure_config: { get_input: azure_config }
+      name: { get_input: vnet_name }
+      location: { get_input: azure_location }
+      use_external_resource: true
+    relationships:
+      - type: cloudify.azure.relationships.contained_in_resource_group
+        target: resource_group
+
+  public_subnet:
+    type: cloudify.azure.nodes.network.Subnet
+    properties:
+      azure_config: { get_input: azure_config }
+      name: { get_input: subnet_name }
+      location: { get_input: azure_location }
+      use_external_resource: true
+    relationships:
+      - type: cloudify.azure.relationships.contained_in_virtual_network
+        target: virtual_network
+
+  public_ip_address:
+    type: cloudify.azure.nodes.network.PublicIPAddress
+    properties:
+      azure_config: { get_input: azure_config }
+      name: 'jboss_public_ia'
+      location: { get_input: azure_location }
+      resource_config:
+        publicIPAllocationMethod: Static
+    relationships:
+      - type: cloudify.azure.relationships.contained_in_resource_group
+        target: resource_group
+
+  vm:
+    type: cloudify.azure.nodes.compute.VirtualMachine
+    properties:
+      azure_config: { get_input: azure_config }
+      location: { get_input: azure_location }
+      os_family: linux
+      name: 'jboss-app-vm'
+      resource_config:
+        hardwareProfile:
+          vmSize: { get_input: size }
+        storageProfile:
+          imageReference: { get_input: image }
+        osProfile:
+          computerName: { get_property: [SELF, name] }
+          adminUsername: centos
+          linuxConfiguration:
+            ssh:
+              publicKeys:
+                - path: /home/centos/.ssh/authorized_keys
+                  keyData: { get_input: public_key_data }
+            disablePasswordAuthentication: True
+      agent_config:
+        user: { get_input: agent_user }
+        key: { get_input: private_key_path }
+        port: 22
+    relationships:
+      - type: cloudify.azure.relationships.contained_in_resource_group
+        target: resource_group
+      - type: cloudify.azure.relationships.connected_to_storage_account
+        target: storage_account
+      - type: cloudify.azure.relationships.connected_to_nic
+        target: public_nic

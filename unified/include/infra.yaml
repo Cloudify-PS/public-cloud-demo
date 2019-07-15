@@ -1,0 +1,8 @@
+inputs:
+  agent_user:
+    type: string
+    default: { get_secret: default_centos_agent_user }
+
+  private_key_path:
+    type: string
+    default: { get_secret: default_private_key_path }
