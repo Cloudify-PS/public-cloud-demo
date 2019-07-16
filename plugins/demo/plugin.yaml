@@ -1,0 +1,63 @@
+plugins:
+  vsftpd:
+    executor: host_agent
+    package_name: demo-plugin
+    package_version: '1.0.0'
+  nodejs:
+    executor: host_agent
+    package_name: demo-plugin
+    package_version: '1.0.0'
+
+node_types:
+  vsftpd:
+    derived_from: cloudify.nodes.SoftwareComponent
+    properties:
+      configuration:
+        description: >
+          Key/value pairs to write into vsftpd's configuration file.
+        default: {}
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create: vsftpd.vsftpd_plugin.tasks.create
+        configure:
+          implementation: vsftpd.vsftpd_plugin.tasks.configure
+          inputs:
+            configuration:
+              default: { get_property: [ SELF, configuration ] }
+        start: vsftpd.vsftpd_plugin.tasks.start
+        stop: vsftpd.vsftpd_plugin.tasks.stop
+        delete: vsftpd.vsftpd_plugin.tasks.delete
+
+  nodejs:
+    derived_from: cloudify.nodes.SoftwareComponent
+    properties:
+      npm_list:
+        default: []
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: nodejs.nodejs_plugin.tasks.create
+          inputs:
+            npm_list:
+              default: { get_property: [ SELF, npm_list ] }
+
+  nodejs.http_server:
+    derived_from: cloudify.nodes.SoftwareComponent
+    properties:
+      port:
+        type: integer
+        default: 80
+      content_dir:
+        type: string
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        start:
+          implementation: nodejs.nodejs_plugin.http.start
+          inputs:
+            port:
+              type: integer
+              default: { get_property: [ SELF, port ] }
+            content_dir:
+              type: string
+              default: { get_property: [ SELF, content_dir ] }
+        stop: nodejs.nodejs_plugin.http.stop

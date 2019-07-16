@@ -1,0 +1,225 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+imports:
+  - http://www.getcloudify.org/spec/cloudify/4.6/types.yaml
+  - plugin:cloudify-aws-plugin
+  - plugin:demo-plugin
+
+inputs:
+  aws_config:
+    description: >
+      Parameters for connecting to AWS.
+    default:
+      aws_access_key_id: { get_secret: aws_default_access_key_id }
+      aws_secret_access_key: { get_secret: aws_default_secret_access_key }
+      ec2_region_name: { get_secret: aws_default_ec2_region_name }
+
+  vpc_id:
+    type: string
+    default: { get_secret: aws_default_vpc_id }
+
+  vpc_cidr:
+    type: string
+    default: { get_secret: aws_default_vpc_cidr }
+
+  resource_name_prefix:
+    type: string
+
+  image_id:
+    type: string
+    default: { get_secret: aws_default_linux_ami }
+
+  instance_type:
+    type: string
+    default: t2.micro
+
+  keypair_name:
+    type: string
+    default: { get_secret: aws_default_keypair_name }
+
+  agent_user:
+    type: string
+    default: { get_secret: aws_default_linux_agent_user }
+
+  private_key_path:
+    type: string
+    default: { get_secret: aws_default_private_key_path }
+
+  subnet:
+    type: string
+    default: { get_secret: aws_default_subnet_id }
+
+  agents_security_group_name:
+    default: { get_secret: aws_default_agents_security_group_id }
+
+  content_dir:
+    description: >
+      Directory to serve contents from.
+    type: string
+    default: /var/wwwroot
+
+  ftp_username:
+    description: >
+      Name of user to create for FTP access.
+    type: string
+    default: test
+
+  min_ftp_port:
+    description: >
+      Lowest port number to use for FTP PASV mode.
+    type: integer
+    default: 10000
+
+  max_ftp_port:
+    description: >
+      Highest  port number to use for FTP PASV mode.
+    type: integer
+    default: 10100
+
+node_templates:
+  tenant_vpc:
+    type: cloudify.aws.nodes.VPC
+    properties:
+      aws_config: { get_input: aws_config }
+      resource_id: { get_input: vpc_id }
+      cidr_block: { get_input: vpc_cidr }
+      use_external_resource: true
+
+  subnet:
+    type: cloudify.aws.nodes.Subnet
+    properties:
+      aws_config: { get_input: aws_config }
+      resource_id: { get_input: subnet }
+      cidr_block: ''
+      use_external_resource: true
+
+  agents_security_group:
+    type: cloudify.aws.nodes.SecurityGroup
+    properties:
+      aws_config: { get_input: aws_config }
+      description: Security Group for cloudify agents
+      resource_id: { get_input: agents_security_group_name }
+      use_external_resource: true
+
+  app_security_group:
+    type: cloudify.aws.nodes.SecurityGroup
+    properties:
+      aws_config: { get_input: aws_config }
+      description: Security Group for NodeJS application
+      resource_id: { concat: [ { get_input: resource_name_prefix }, '_securitygroup' ] }
+      rules:
+        - ip_protocol: tcp
+          from_port: 80
+          to_port: 80
+          cidr_ip: 0.0.0.0/0
+        - ip_protocol: tcp
+          from_port: 20
+          to_port: 21
+          cidr_ip: 0.0.0.0/0
+        - ip_protocol: tcp
+          from_port: { get_input: min_ftp_port }
+          to_port: { get_input: max_ftp_port }
+          cidr_ip: 0.0.0.0/0
+
+  elastic_ip:
+    type: cloudify.aws.nodes.ElasticIP
+    properties:
+      aws_config: { get_input: aws_config }
+
+  vm:
+    type: cloudify.aws.nodes.Instance
+    properties:
+      aws_config: { get_input: aws_config }
+      agent_config:
+        install_method: remote
+        user: { get_input: agent_user }
+        key: { get_input: private_key_path }
+      image_id: { get_input: image_id }
+      instance_type: { get_input: instance_type }
+      tags:
+        Name: { concat: [ { get_input: resource_name_prefix }, '_vm' ] }
+      os_family: linux
+      parameters:
+        key_name: { get_input: keypair_name }
+    relationships:
+      - type: cloudify.aws.relationships.instance_contained_in_subnet
+        target: subnet
+      - type: cloudify.aws.relationships.instance_connected_to_security_group
+        target: agents_security_group
+      - type: cloudify.aws.relationships.instance_connected_to_security_group
+        target: app_security_group
+      - type: cloudify.aws.relationships.instance_connected_to_elastic_ip
+        target: elastic_ip
+
+  vm_init:
+    type: cloudify.nodes.Root
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: scripts/init.sh
+          inputs:
+            ftp_username: { get_input: ftp_username }
+            content_dir: { get_input: content_dir }
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm
+
+  ftp_server:
+    type: vsftpd
+    properties:
+      configuration:
+        anonymous_enable: NO
+        local_enable: YES
+        write_enable: YES
+        local_umask: 022
+        connect_from_port_20: YES
+        ascii_upload_enable: YES
+        ascii_download_enable: YES
+        ftpd_banner: Welcome
+        listen: NO
+        listen_ipv6: YES
+        pam_service_name: vsftpd
+        userlist_enable: YES
+        tcp_wrappers: YES
+        use_localtime: YES
+        pasv_enable: Yes
+        pasv_min_port: { get_input: min_ftp_port }
+        pasv_max_port: { get_input: max_ftp_port }
+        local_root: { get_property: [ http_server, content_dir ] }
+        pasv_promiscuous: YES
+    relationships:
+      - target: vm
+        type: cloudify.relationships.contained_in
+      - target: vm_init
+        type: cloudify.relationships.depends_on
+
+  nodejs:
+    type: nodejs
+    properties:
+      npm_list:
+        - http-server
+    relationships:
+      - target: vm
+        type: cloudify.relationships.contained_in
+      - target: vm_init
+        type: cloudify.relationships.depends_on
+
+  http_server:
+    type: nodejs.http_server
+    properties:
+      content_dir: /var/wwwroot
+    relationships:
+      - target: vm
+        type: cloudify.relationships.contained_in
+      - target: nodejs
+        type: cloudify.relationships.depends_on
+
+outputs:
+  username:
+    value: { get_input: ftp_username }
+  password:
+    value: { get_attribute: [ vm_init, ftp_password ] }
+  endpoint:
+    value: { concat: [ 'ftp://', { get_attribute: [elastic_ip, aws_resource_id] } ] }
+  base_url:
+    value: { concat: [ 'http://', { get_attribute: [elastic_ip, aws_resource_id] }, ':', { get_property: [ http_server, port ] } ] }

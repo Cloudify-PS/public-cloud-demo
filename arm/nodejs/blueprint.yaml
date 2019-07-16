@@ -1,0 +1,118 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+imports:
+  - http://cloudify.co/spec/cloudify/4.6/types.yaml
+  - plugin:cloudify-azure-plugin
+
+inputs:
+  azure_config:
+    description: >
+      Parameters for connecting to Azure.
+    type: cloudify.datatypes.azure.Config
+    default:
+      subscription_id: { get_secret: default_azure_subscription_id }
+      tenant_id: { get_secret: default_azure_tenant_id }
+      client_id: { get_secret: default_azure_client_id }
+      client_secret: { get_secret: default_azure_client_secret }
+
+  azure_location:
+    description: >
+      Azure Location code for creating resources.
+    type: string
+    default: { get_secret: default_azure_location }
+
+  resource_group_name:
+    description: >
+      Name of resource group to create for the deployment.
+    type: string
+
+  resource_name_prefix:
+    description: >
+      Prefix to prepend to the names of created resources.
+    type: string
+
+  hosting_environment_name:
+    type: string
+    default: ''
+
+  always_on:
+    type: boolean
+    default: false
+
+  sku:
+    type: string
+    default: PremiumV2
+
+  sku_code:
+    type: string
+    default: P1v2
+
+  worker_size:
+    type: string
+    default: '3'
+
+  worker_size_id:
+    type: string
+    default: '3'
+
+  worker_count:
+    type: string
+    default: '1'
+
+  linux_fx_version:
+    type: string
+    default: 'NODE|10.14'
+
+  app_content:
+    type: string
+    default: 'resources/index.html'
+
+node_templates:
+  app:
+    type: cloudify.azure.Deployment
+    properties:
+      azure_config: { get_input: azure_config }
+      location: { get_input: azure_location }
+      name: { get_input: resource_group_name }
+      params:
+        name: { concat: [ { get_input: resource_name_prefix }, 'app' ] }
+        location: { get_property: [ SELF, location ] }
+        hostingEnvironment: { get_input: hosting_environment_name }
+        hostingPlanName: { concat: [ { get_input: resource_name_prefix }, 'plan' ] }
+        serverFarmResourceGroup: { get_input: resource_group_name }
+        alwaysOn: { get_input: always_on }
+        sku: { get_input: sku }
+        skuCode: { get_input: sku_code }
+        workerSize: { get_input: worker_size }
+        workerSizeId: { get_input: worker_size_id }
+        numberOfWorkers: { get_input: worker_count }
+        linuxFxVersion: { get_input: linux_fx_version }
+      template_file: templates/nodejs.json
+
+  app_content:
+    type: cloudify.nodes.ApplicationModule
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: scripts/nodejs/create.sh
+          executor: central_deployment_agent
+          inputs:
+            username: { concat: [ { get_input: resource_name_prefix }, 'app' ] }
+            password: { get_attribute: [ app, outputs, publishProfile, value, properties, publishingPassword ] }
+            resource_path: { get_input: app_content }
+            endpoint:
+              concat:
+                - ftps://
+                - { get_attribute: [ app, outputs, site, value, homeStamp ] }
+                - .ftp.azurewebsites.windows.net/site/wwwroot
+    relationships:
+      - type: cloudify.relationships.depends_on
+        target: app
+
+outputs:
+  app_url:
+    value:
+      concat:
+        - https://
+        - { get_attribute: [ app, outputs, site, value, enabledHostNames, 1 ] }
+        - /wwwroot

@@ -1,0 +1,58 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+description: >
+  Deploys a simple HTML file to NodeJS.
+
+imports:
+  - http://cloudify.co/spec/cloudify/4.6/types.yaml
+  - plugin:cloudify-utilities-plugin
+  - common/master-proxy.yaml
+
+inputs:
+  infra_blueprint:
+    description: >
+      Name of certified blueprint to deploy.
+    type: string
+
+  infra_inputs:
+    description: >
+      Inputs that will be passed on to the certified blueprint.
+    default: {}
+
+  nodejs_deployment_id:
+    description: >
+      Name of NodeJS deployment to create.
+    type: string
+
+  app_content:
+    type: string
+    default: 'resources/index.html'
+
+node_templates:
+  nodejs:
+    type: MasterDeployment
+    properties:
+      blueprint_id: { get_input: infra_blueprint }
+      deployment_id: { get_input: nodejs_deployment_id }
+      deployment_inputs: { get_input: infra_inputs }
+
+  app_content:
+    type: cloudify.nodes.ApplicationModule
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: scripts/ftp-upload.sh
+          executor: central_deployment_agent
+          inputs:
+            username: { get_attribute: [ nodejs, deployment, outputs, username ] }
+            password:  { get_attribute: [ nodejs, deployment, outputs, password ] }
+            endpoint:  { get_attribute: [ nodejs, deployment, outputs, endpoint ] }
+            resource_path: { get_input: app_content }
+    relationships:
+      - type: cloudify.relationships.depends_on
+        target: nodejs
+
+outputs:
+  base_url:
+    description: Application URL
+    value: { get_attribute: [ nodejs, deployment, outputs, base_url ] }

@@ -1,13 +1,7 @@
-tosca_definitions_version: cloudify_dsl_1_3
-
-imports:
-  - http://cloudify.co/spec/cloudify/4.6/types.yaml
-  - include/infra.yaml
-  - include/app.yaml
-  - plugin:cloudify-azure-plugin
-
 inputs:
   azure_config:
+    description: >
+      Parameters for connecting to Azure.
     type: cloudify.datatypes.azure.Config
     default:
       subscription_id: { get_secret: default_azure_subscription_id }
@@ -16,37 +10,60 @@ inputs:
       client_secret: { get_secret: default_azure_client_secret }
 
   azure_location:
+    description: >
+      Azure Location code for creating resources.
     default: { get_secret: default_azure_location }
 
-  resource_group_name:
+  cfy_resource_group_name:
+    description: >
+      Name of resource group where the Cloudify Manager virtual network
+      is located.
     type: string
-    default: { get_secret: default_azure_resource_group }
+    default: { get_secret: default_azure_cfy_resource_group_name }
+
+  cfy_vnet_name:
+    description: >
+      Name of virtual network to create our subnet in.
+      This virtual network is expected to exist already - for this demo,
+      Cloudify Manager and the new VM share the same virtual network.
+    type: string
+    default: { get_secret: default_azure_cfy_vnet_name }
+
+  cfy_subnet_name:
+    description: >
+      Name of subnet to which Cloudify Manager is connected. The new VM
+      will have a leg in this subnet.
+    type: string
+    default: { get_secret: default_azure_cfy_subnet_name }
+
+  resource_group_name:
+    description: >
+      Name of resource group to use.
+    type: string
+
+  resource_name_prefix:
+    description: >
+      Prefix to prepend to created resources' names.
+    type: string
 
   image:
-    description: Image information
+    description: >
+      Image to use.
     default:
       publisher: OpenLogic
       offer: CentOS
       sku: 7.6
       version: latest
 
-  storage_account_name:
-    type: string
-    default: 'jbossstorageaccount'
-
   size:
-    description: Name of Virtual Machine Size in Azure.
+    description: >
+      Name of Virtual Machine Size in Azure.
+    type: string
     default: Standard_B1s
 
-  subnet_name:
-    type: string
-    default: 'default'
-
-  vnet_name:
-    type: string
-    default: 'isaac-vnet'
-
   public_key_data:
+    description: >
+      Public SSH key to inject into the `authorized_keys` file.
     type: string
     default: { get_secret: default_azure_public_key_data }
 
@@ -57,14 +74,12 @@ node_templates:
       azure_config: { get_input: azure_config }
       name: { get_input: resource_group_name }
       location: { get_input: azure_location }
-      use_external_resource: true
 
   storage_account:
     type: cloudify.azure.nodes.storage.StorageAccount
     properties:
       azure_config: { get_input: azure_config }
-      use_external_resource: false
-      name: { get_input: storage_account_name }
+      name: { concat: [ { get_input: resource_name_prefix }, 'sg' ] }
       location: { get_input: azure_location }
       resource_config:
         accountType: Standard_LRS
@@ -72,18 +87,18 @@ node_templates:
       - type: cloudify.azure.relationships.contained_in_resource_group
         target: resource_group
 
-  public_nic:
+  nic:
     type: cloudify.azure.nodes.network.NetworkInterfaceCard
     properties:
       azure_config: { get_input: azure_config }
+      name: { concat: [ { get_input: resource_name_prefix }, 'nic' ] }
       location: { get_input: azure_location }
-      name: 'jboss_public_nic'
       primary: true
     relationships:
     - type: cloudify.azure.relationships.contained_in_resource_group
       target: resource_group
     - type: cloudify.azure.relationships.nic_connected_to_network_security_group
-      target: public_security_group
+      target: network_security_group
     - type: cloudify.azure.relationships.nic_connected_to_ip_configuration
       target: public_ip_cfg
 
@@ -91,37 +106,26 @@ node_templates:
     type: cloudify.azure.nodes.network.IPConfiguration
     properties:
       azure_config: { get_input: azure_config }
+      name: { concat: [ { get_input: resource_name_prefix }, 'ipcfg' ] }
       location: { get_input: azure_location }
-      name: 'jboss_public_ic'
       resource_config:
         privateIPAllocationMethod: Dynamic
     relationships:
       - type: cloudify.azure.relationships.contained_in_resource_group
         target: resource_group
       - type: cloudify.azure.relationships.ip_configuration_connected_to_subnet
-        target: public_subnet
+        target: subnet
       - type: cloudify.azure.relationships.ip_configuration_connected_to_public_ip
-        target: public_ip_address
+        target: public_ip
 
-  public_security_group:
+  network_security_group:
     type: cloudify.azure.nodes.network.NetworkSecurityGroup
     properties:
       azure_config: { get_input: azure_config }
+      name: { concat: [ { get_input: resource_name_prefix }, 'sgrp' ] }
       location: { get_input: azure_location }
-      name: 'jboss_public_sg'
       resource_config:
         securityRules:
-          - name: sg_http
-            properties:
-              description: HTTP access
-              protocol: Tcp
-              sourcePortRange: '*'
-              destinationPortRange: 80
-              sourceAddressPrefix: '*'
-              destinationAddressPrefix: '*'
-              priority: 104
-              access: Allow
-              direction: Inbound
           - name: sg_http_8080
             properties:
               description: HTTP access
@@ -152,29 +156,28 @@ node_templates:
     type: cloudify.azure.nodes.network.VirtualNetwork
     properties:
       azure_config: { get_input: azure_config }
-      name: { get_input: vnet_name }
+      name: { get_input: cfy_vnet_name }
       location: { get_input: azure_location }
+      resource_group_name: { get_input: cfy_resource_group_name }
       use_external_resource: true
-    relationships:
-      - type: cloudify.azure.relationships.contained_in_resource_group
-        target: resource_group
 
-  public_subnet:
+  subnet:
     type: cloudify.azure.nodes.network.Subnet
     properties:
       azure_config: { get_input: azure_config }
-      name: { get_input: subnet_name }
+      name: { get_input: cfy_subnet_name }
       location: { get_input: azure_location }
+      resource_group_name: { get_input: cfy_resource_group_name }
       use_external_resource: true
     relationships:
       - type: cloudify.azure.relationships.contained_in_virtual_network
         target: virtual_network
 
-  public_ip_address:
+  public_ip:
     type: cloudify.azure.nodes.network.PublicIPAddress
     properties:
       azure_config: { get_input: azure_config }
-      name: 'jboss_public_ia'
+      name: { concat: [ { get_input: resource_name_prefix }, 'ip' ] }
       location: { get_input: azure_location }
       resource_config:
         publicIPAllocationMethod: Static
@@ -188,7 +191,7 @@ node_templates:
       azure_config: { get_input: azure_config }
       location: { get_input: azure_location }
       os_family: linux
-      name: 'jboss-app-vm'
+      name: { concat: [ { get_input: resource_name_prefix }, 'vm' ] }
       resource_config:
         hardwareProfile:
           vmSize: { get_input: size }
@@ -213,4 +216,4 @@ node_templates:
       - type: cloudify.azure.relationships.connected_to_storage_account
         target: storage_account
       - type: cloudify.azure.relationships.connected_to_nic
-        target: public_nic
+        target: nic

@@ -1,0 +1,19 @@
+node_types:
+  NodeJS:
+    derived_from: cloudify.nodes.SoftwareComponent
+    properties:
+      listening_port:
+        type: integer
+        default: 8080
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create: scripts/nodejs/install.sh
+        configure: scripts/nodejs/configure.sh
+        start: scripts/nodejs/start.sh
+        stop: scripts/nodejs/stop.sh
+node_templates:
+  nodejs:
+    type: NodeJS
+    relationships:
+      - target: vm
+        type: cloudify.relationships.contained_in

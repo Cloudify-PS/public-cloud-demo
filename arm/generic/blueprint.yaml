@@ -1,0 +1,58 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+description: >
+  Generic blueprint to create an Azure deployment from an arbitrary
+  ARM template.
+  All of the Azure deployment's outputs are exposed via a single
+  Cloudify output called "deployment_outputs"; its value will be a
+  dictionary, mapping between an Azure output and its value.
+
+imports:
+  - http://cloudify.co/spec/cloudify/4.6/types.yaml
+  - plugin:cloudify-azure-plugin
+
+inputs:
+  azure_config:
+    description: >
+      Parameters for connecting to Azure.
+    type: cloudify.datatypes.azure.Config
+    default:
+      subscription_id: { get_secret: default_azure_subscription_id }
+      tenant_id: { get_secret: default_azure_tenant_id }
+      client_id: { get_secret: default_azure_client_id }
+      client_secret: { get_secret: default_azure_client_secret }
+
+  azure_location:
+    description: >
+      Azure Location code for creating resources.
+    type: string
+    default: { get_secret: default_azure_location }
+
+  resource_group_name:
+    description: >
+      Name of resource group to create for the deployment.
+    type: string
+
+  params:
+    description: >
+      Dictionary of parameters to pass on to the ARM template.
+    default: {}
+
+  template_file:
+    description: >
+      Path (relative to blueprint's root) or URL of the template.
+    type: string
+
+node_templates:
+  azure_deployment:
+    type: cloudify.azure.Deployment
+    properties:
+      azure_config: { get_input: azure_config }
+      location: { get_input: azure_location }
+      name: { get_input: resource_group_name }
+      params: { get_input: params }
+      template_file: { get_input: template_file }
+
+outputs:
+  deployment_outputs:
+    value: { get_attribute: [ azure_deployment, outputs ] }

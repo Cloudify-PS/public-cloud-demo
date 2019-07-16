@@ -1,0 +1,78 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+imports:
+  - http://cloudify.co/spec/cloudify/4.6/types.yaml
+  - plugin:cloudify-azure-plugin
+
+inputs:
+  azure_config:
+    description: >
+      Parameters for connecting to Azure.
+    type: cloudify.datatypes.azure.Config
+    default:
+      subscription_id: { get_secret: default_azure_subscription_id }
+      tenant_id: { get_secret: default_azure_tenant_id }
+      client_id: { get_secret: default_azure_client_id }
+      client_secret: { get_secret: default_azure_client_secret }
+
+  azure_location:
+    description: >
+      Azure Location code for creating resources.
+    type: string
+    default: { get_secret: default_azure_location }
+
+  resource_name_prefix:
+    description: >
+      Prefix to prepend to resource names.
+    type: string
+
+  resource_group_name:
+    description: >
+      Name of resource group to create for the deployment.
+    type: string
+
+  public_key_data:
+    description: >
+      SSH public key to inject to the VM's authorized_keys file.
+    type: string
+    default: { get_secret: default_azure_public_key_data }
+
+  private_key_path:
+    description: >
+      Path, on Cloudify Manager, to the private key used to SSH to
+      the new VM. This is used in order to install the agent.
+    type: string
+    default: { get_secret: default_private_key_path }
+
+node_templates:
+  deployment:
+    type: cloudify.azure.Deployment
+    properties:
+      azure_config: { get_input: azure_config }
+      location: { get_input: azure_location }
+      name: { get_input: resource_group_name }
+      params:
+        location: { get_input: azure_location }
+        resource_name_prefix: { get_input: resource_name_prefix }
+        cfy_resource_group_name: { get_secret: default_azure_cfy_resource_group_name }
+        cfy_vnet_name: { get_secret: default_azure_cfy_vnet_name }
+        cfy_subnet_name: { get_secret: default_azure_cfy_subnet_name }
+        public_key_data: { get_input: public_key_data }
+      template_file: 'templates/single-vm.json'
+
+  vm:
+    type: cloudify.nodes.Compute
+    properties:
+      ip: { get_attribute: [ deployment, outputs, private_ip, value ] }
+      agent_config:
+        user: { get_attribute: [ deployment, outputs, admin_user, value ] }
+        key: { get_input: private_key_path }
+    relationships:
+      - type: cloudify.relationships.depends_on
+        target: deployment
+
+outputs:
+  private_ip:
+    value: { get_attribute: [ deployment, outputs, private_ip, value ] }
+  public_ip:
+    value: { get_attribute: [ deployment, outputs, public_ip, value ] }

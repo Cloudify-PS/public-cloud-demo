@@ -1,0 +1,16 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+imports:
+  - http://cloudify.co/spec/cloudify/4.6/types.yaml
+  - plugin:cloudify-openstack-plugin
+  - include/infra-common.yaml
+  - include/infra-openstack.yaml
+  - include/nodejs.yaml
+
+outputs:
+  private_ip:
+    value: { get_attribute: [vm, ip] }
+  public_ip:
+    value: { get_attribute: [floating_ip, floating_ip_address] }
+  url:
+    value: { concat: [ 'http://', { get_attribute: [floating_ip, floating_ip_address] }, ':8080' ]}

@@ -1,0 +1,83 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+imports:
+  - http://cloudify.co/spec/cloudify/4.6/types.yaml
+  - plugin:cloudify-azure-plugin
+
+inputs:
+  azure_config:
+    description: >
+      Parameters for connecting to Azure.
+    type: cloudify.datatypes.azure.Config
+    default:
+      subscription_id: { get_secret: default_azure_subscription_id }
+      tenant_id: { get_secret: default_azure_tenant_id }
+      client_id: { get_secret: default_azure_client_id }
+      client_secret: { get_secret: default_azure_client_secret }
+
+  azure_location:
+    description: >
+      Azure Location code for creating resources.
+    type: string
+    default: { get_secret: default_azure_location }
+
+  resource_group_name:
+    description: >
+      Name of resource group to create for the deployment.
+    type: string
+
+  resource_name_prefix:
+    description: >
+      Prefix to prepend to the names of created resources.
+    type: string
+
+  db_username:
+    type: string
+    default: cloudify
+
+  db_password:
+    type: string
+    default: 'Cl0ud1fy123!#'
+
+  db_collation:
+    type: string
+    default: SQL_Latin1_General_CP1_CI_AS
+
+  db_tier:
+    type: string
+    default: GeneralPurpose
+
+  db_sku_name:
+    type: string
+    default: GP_Gen5_2
+
+  max_size:
+    type: integer
+    default: 34359738368
+
+node_templates:
+  db:
+    type: cloudify.azure.Deployment
+    properties:
+      azure_config: { get_input: azure_config }
+      location: { get_input: azure_location }
+      name: { get_input: resource_group_name }
+      params:
+        administratorLogin: { get_input: db_username }
+        administratorLoginPassword: { get_input: db_password }
+        collation: { get_input: db_collation }
+        databaseName: { concat: [ { get_input: resource_name_prefix }, 'db' ] }
+        tier: { get_input: db_tier }
+        skuName: { get_input: db_sku_name }
+        location: { get_property: [ SELF, location ] }
+        maxSizeBytes: { get_input: max_size }
+        serverName: { concat: [ { get_input: resource_name_prefix }, 'server' ] }
+      template_file: templates/mssql.json
+
+outputs:
+  all_arm_outputs:
+    value: { get_attribute: [ db, outputs ] }
+  admin_login:
+    value: { get_attribute: [ db, outputs, admin_login, value ] }
+  server_fqdn:
+    value: { get_attribute: [ db, outputs, server_fqdn, value ] }

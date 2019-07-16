@@ -1,0 +1,31 @@
+node_types:
+  # A wrapper for Cloudify's DeploymentProxy type, exists to reduce
+  # boilerplate YAML. Client blueprints need only deal with the
+  # `blueprint_id`, `deployment_id` and `deployment_inputs` properties;
+  # the `resource_config` property will be set up uniformly for all
+  # blueprints.
+  MasterDeployment:
+    derived_from: cloudify.nodes.DeploymentProxy
+    properties:
+      blueprint_id:
+        description: >
+          Name of certified blueprint to create a deployment of.
+        type: string
+      deployment_id:
+        description: >
+          Name to assign to the newly created deployment.
+        type: string
+      deployment_inputs:
+        description: >
+          Inputs to pass into the new deployment.
+        default: {}
+      resource_config:
+        default:
+          blueprint:
+            id: { get_property: [ SELF, blueprint_id ] }
+            external_resource: true
+          deployment:
+            id: { get_property: [ SELF, deployment_id ] }
+            inputs: { get_property: [ SELF, deployment_inputs ] }
+            all_outputs: true
+          reexecute: false
