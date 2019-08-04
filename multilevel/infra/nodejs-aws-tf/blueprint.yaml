@@ -2,36 +2,29 @@ tosca_definitions_version: cloudify_dsl_1_3
 
 imports:
   - http://www.getcloudify.org/spec/cloudify/4.6/types.yaml
-  - plugin:cloudify-aws-plugin
+  - plugin:cloudify-terraform-plugin
   - plugin:demo-plugin
 
 inputs:
-  aws_config:
-    description: >
-      Parameters for connecting to AWS.
-    default:
-      aws_access_key_id: { get_secret: aws_default_access_key_id }
-      aws_secret_access_key: { get_secret: aws_default_secret_access_key }
-      ec2_region_name: { get_secret: aws_default_ec2_region_name }
+  aws_access_key_id:
+    type: string
+    default: { get_secret: aws_default_access_key_id }
+
+  aws_secret_access_key:
+    type: string
+    default: { get_secret: aws_default_secret_access_key }
+
+  ec2_region_name:
+    type: string
+    default: { get_secret: aws_default_ec2_region_name }
 
   vpc_id:
     type: string
     default: { get_secret: aws_default_vpc_id }
 
-  vpc_cidr:
+  subnet_cidr:
     type: string
-    default: { get_secret: aws_default_vpc_cidr }
-
-  resource_name_prefix:
-    type: string
-
-  image_id:
-    type: string
-    default: { get_secret: aws_default_linux_ami }
-
-  instance_type:
-    type: string
-    default: t2.micro
+    default: '172.31.16.0/20'
 
   keypair_name:
     type: string
@@ -41,16 +34,12 @@ inputs:
     type: string
     default: { get_secret: aws_default_linux_agent_user }
 
+  agents_security_group_id:
+    default: { get_secret: aws_default_agents_security_group_id }
+
   private_key_path:
     type: string
     default: { get_secret: aws_default_private_key_path }
-
-  subnet:
-    type: string
-    default: { get_secret: aws_default_subnet_id }
-
-  agents_security_group_name:
-    default: { get_secret: aws_default_agents_security_group_id }
 
   content_dir:
     description: >
@@ -77,71 +66,37 @@ inputs:
     default: 10100
 
 node_templates:
-  subnet:
-    type: cloudify.aws.nodes.Subnet
+  cloud_resources:
+    type: cloudify.nodes.terraform.Module
     properties:
-      aws_config: { get_input: aws_config }
-      resource_id: { get_input: subnet }
-      cidr_block: ''
-      use_external_resource: true
-
-  agents_security_group:
-    type: cloudify.aws.nodes.SecurityGroup
-    properties:
-      aws_config: { get_input: aws_config }
-      description: Security Group for cloudify agents
-      resource_id: { get_input: agents_security_group_name }
-      use_external_resource: true
-
-  app_security_group:
-    type: cloudify.aws.nodes.SecurityGroup
-    properties:
-      aws_config: { get_input: aws_config }
-      description: Security Group for NodeJS application
-      resource_id: { concat: [ { get_input: resource_name_prefix }, '_securitygroup' ] }
-      rules:
-        - ip_protocol: tcp
-          from_port: 80
-          to_port: 80
-          cidr_ip: 0.0.0.0/0
-        - ip_protocol: tcp
-          from_port: 20
-          to_port: 21
-          cidr_ip: 0.0.0.0/0
-        - ip_protocol: tcp
-          from_port: { get_input: min_ftp_port }
-          to_port: { get_input: max_ftp_port }
-          cidr_ip: 0.0.0.0/0
-
-  elastic_ip:
-    type: cloudify.aws.nodes.ElasticIP
-    properties:
-      aws_config: { get_input: aws_config }
+      resource_config:
+        environment_variables:
+          AWS_ACCESS_KEY_ID: { get_input: aws_access_key_id }
+          AWS_SECRET_ACCESS_KEY: { get_input: aws_secret_access_key }
+          AWS_DEFAULT_REGION: { get_input: ec2_region_name }
+        variables:
+          aws_region: { get_input: ec2_region_name }
+          keypair_name: { get_input: keypair_name }
+          vpc_id: { get_input: vpc_id }
+          admin_user: { get_input: agent_user }
+          subnet_cidr: { get_input: subnet_cidr }
+          agents_security_group_id: { get_input: agents_security_group_id }
+          min_ftp_port: { get_input: min_ftp_port }
+          max_ftp_port: { get_input: max_ftp_port }
+        source: resources/template.zip
 
   vm:
-    type: cloudify.aws.nodes.Instance
+    type: cloudify.nodes.Compute
     properties:
-      aws_config: { get_input: aws_config }
+      ip: { get_attribute: [ cloud_resources, resources, web, instances, 0, attributes, private_ip ] }
       agent_config:
         install_method: remote
         user: { get_input: agent_user }
         key: { get_input: private_key_path }
-      image_id: { get_input: image_id }
-      instance_type: { get_input: instance_type }
-      tags:
-        Name: { concat: [ { get_input: resource_name_prefix }, '_vm' ] }
       os_family: linux
-      parameters:
-        key_name: { get_input: keypair_name }
     relationships:
-      - type: cloudify.aws.relationships.instance_contained_in_subnet
-        target: subnet
-      - type: cloudify.aws.relationships.instance_connected_to_security_group
-        target: agents_security_group
-      - type: cloudify.aws.relationships.instance_connected_to_security_group
-        target: app_security_group
-      - type: cloudify.aws.relationships.instance_connected_to_elastic_ip
-        target: elastic_ip
+      - target: cloud_resources
+        type: cloudify.relationships.depends_on
 
   vm_init:
     type: cloudify.nodes.Root
@@ -212,6 +167,6 @@ outputs:
   password:
     value: { get_attribute: [ vm_init, ftp_password ] }
   endpoint:
-    value: { concat: [ 'ftp://', { get_attribute: [elastic_ip, aws_resource_id] } ] }
+    value: { concat: [ 'ftp://', { get_attribute: [ cloud_resources, resources, eip, instances, 0, attributes, public_ip ] } ] }
   base_url:
-    value: { concat: [ 'http://', { get_attribute: [elastic_ip, aws_resource_id] }, ':', { get_property: [ http_server, port ] } ] }
+    value: { concat: [ 'http://', { get_attribute: [ cloud_resources, resources, eip, instances, 0, attributes, public_ip ] }, ':', { get_property: [ http_server, port ] } ] }

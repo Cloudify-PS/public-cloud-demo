@@ -81,7 +81,7 @@ inputs:
     description: >
       SSH public key to inject to the VM's authorized_keys file.
     type: string
-    default: { get_secret: default_azure_public_key_data }
+    default: { get_secret: default_public_key_data }
 
   private_key_path:
     description: >
