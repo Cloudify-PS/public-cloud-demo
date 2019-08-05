@@ -1,9 +1,5 @@
 tosca_definitions_version: cloudify_dsl_1_3
 
-description: >
-  Creates infrastructure on OpenStack, including a VM containing
-  NodeJS and an FTP server.
-
 imports:
   - http://cloudify.co/spec/cloudify/4.6/types.yaml
   - plugin:cloudify-openstack-plugin
@@ -42,7 +38,7 @@ inputs:
     description: >
       Name of keypair to attach to the created VM.
     type: string
-    default: { get_secret: default_keypair_name }
+    default: { get_secret: openstack_default_keypair_name }
 
   resource_name_prefix:
     description: >
@@ -53,7 +49,7 @@ inputs:
     description: >
       Name of image to boot from.
     type: string
-    default: { get_secret: default_centos_image_id }
+    default: { get_secret: default_linux_image_id }
 
   flavor_id:
     description: >
@@ -71,7 +67,7 @@ inputs:
 
   network_name:
     description: >
-      Name of network to create for the application.
+      Name of network that the new VM should connect to.
     type: string
     default: { get_secret: default_management_network_name }
 
@@ -107,7 +103,7 @@ inputs:
 
   agent_user:
     type: string
-    default: { get_secret: default_centos_agent_user }
+    default: { get_secret: default_linux_agent_user }
 
   private_key_path:
     type: string

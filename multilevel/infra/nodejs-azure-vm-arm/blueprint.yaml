@@ -1,9 +1,5 @@
 tosca_definitions_version: cloudify_dsl_1_3
 
-description: >
-  Creates infrastructure on Azure, using an ARM template that sets up
-  a VM and other resources. NodeJS and FTP are installed by Cloudify.
-
 imports:
   - http://cloudify.co/spec/cloudify/4.6/types.yaml
   - plugin:cloudify-azure-plugin
@@ -35,6 +31,28 @@ inputs:
     description: >
       Name of resource group to create for the deployment.
     type: string
+
+  cfy_resource_group_name:
+    description: >
+      Name of resource group where the Cloudify Manager virtual network
+      is located.
+    type: string
+    default: { get_secret: default_azure_cfy_resource_group_name }
+
+  cfy_vnet_name:
+    description: >
+      Name of virtual network to create our subnet in.
+      This virtual network is expected to exist already - for this demo,
+      Cloudify Manager and the new VM share the same virtual network.
+    type: string
+    default: { get_secret: default_azure_cfy_vnet_name }
+
+  cfy_subnet_name:
+    description: >
+      Name of subnet to which Cloudify Manager is connected. The new VM
+      will have a leg in this subnet.
+    type: string
+    default: { get_secret: default_azure_cfy_subnet_name }
 
   public_key_data:
     description: >
@@ -83,9 +101,9 @@ node_templates:
       params:
         location: { get_input: azure_location }
         resource_name_prefix: { get_input: resource_name_prefix }
-        cfy_resource_group_name: { get_secret: default_azure_cfy_resource_group_name }
-        cfy_vnet_name: { get_secret: default_azure_cfy_vnet_name }
-        cfy_subnet_name: { get_secret: default_azure_cfy_subnet_name }
+        cfy_resource_group_name: { get_input: cfy_resource_group_name }
+        cfy_vnet_name: { get_input: cfy_vnet_name }
+        cfy_subnet_name: { get_input: cfy_subnet_name }
         public_key_data: { get_input: public_key_data }
         min_ftp_port: { get_input: min_ftp_port }
         max_ftp_port: { get_input: max_ftp_port }

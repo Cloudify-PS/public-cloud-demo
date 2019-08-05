@@ -1,8 +1,7 @@
 tosca_definitions_version: cloudify_dsl_1_3
 
 description: >
-  Creates infrastructure on Azure, using Cloudify's Azure Plugin's
-  types (ARM is not used here).
+  See README.md file.
 
 imports:
   - http://cloudify.co/spec/cloudify/4.6/types.yaml
@@ -75,7 +74,7 @@ inputs:
 
   agent_user:
     type: string
-    default: { get_secret: default_centos_agent_user }
+    default: { get_secret: default_linux_agent_user }
 
   public_key_data:
     description: >

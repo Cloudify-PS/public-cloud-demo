@@ -1,5 +1,8 @@
 tosca_definitions_version: cloudify_dsl_1_3
 
+description: >
+  See README.md file.
+
 imports:
   - http://www.getcloudify.org/spec/cloudify/4.6/types.yaml
   - plugin:cloudify-terraform-plugin
@@ -7,39 +10,63 @@ imports:
 
 inputs:
   aws_access_key_id:
+    description: >
+      Access key ID for AWS.
     type: string
     default: { get_secret: aws_default_access_key_id }
 
   aws_secret_access_key:
+    description: >
+      Secret access key for AWS.
     type: string
     default: { get_secret: aws_default_secret_access_key }
 
   ec2_region_name:
+    description: >
+      AWS region to operate in.
     type: string
     default: { get_secret: aws_default_ec2_region_name }
 
   vpc_id:
+    description: >
+      AWS ID of a pre-existing VPC to connect to.
     type: string
     default: { get_secret: aws_default_vpc_id }
 
-  subnet_cidr:
+  terraform_executable:
+    description: >
+      Path to the Terraform executable.
     type: string
-    default: '172.31.16.0/20'
+    default: /usr/bin/terraform
+
+  subnet_cidr:
+    description: >
+      CIDR mask of the new subnet to create.
+    type: string
 
   keypair_name:
+    description: >
+      Name of keypair to associate new VM with.
     type: string
     default: { get_secret: aws_default_keypair_name }
 
   agent_user:
+    description: >
+      User ID to use when installing the agent.
     type: string
-    default: { get_secret: aws_default_linux_agent_user }
+    default: { get_secret: default_linux_agent_user }
 
   agents_security_group_id:
+    description: >
+      AWS ID of the agents security group.
     default: { get_secret: aws_default_agents_security_group_id }
 
   private_key_path:
+    description: >
+      Path, on Cloudify Manager, for the private key used to SSH
+      to the VM for the purpose of installing the agent.
     type: string
-    default: { get_secret: aws_default_private_key_path }
+    default: { get_secret: default_private_key_path }
 
   content_dir:
     description: >
@@ -69,6 +96,7 @@ node_templates:
   cloud_resources:
     type: cloudify.nodes.terraform.Module
     properties:
+      executable_path: { get_input: terraform_executable }
       resource_config:
         environment_variables:
           AWS_ACCESS_KEY_ID: { get_input: aws_access_key_id }
