@@ -6,7 +6,6 @@ description: >
 imports:
   - http://cloudify.co/spec/cloudify/4.6/types.yaml
   - plugin:cloudify-utilities-plugin
-  - common/master-proxy.yaml
 
 inputs:
   infra_blueprint:
