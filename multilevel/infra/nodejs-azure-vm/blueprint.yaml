@@ -349,7 +349,7 @@ node_templates:
       - target: nodejs
         type: cloudify.relationships.depends_on
 
-outputs:
+capabilities:
   private_ip:
     value: { get_attribute: [vm, ip] }
   public_ip:

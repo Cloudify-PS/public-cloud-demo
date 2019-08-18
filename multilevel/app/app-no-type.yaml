@@ -5,7 +5,6 @@ description: >
 
 imports:
   - http://cloudify.co/spec/cloudify/5.0.0/types.yaml
-  - plugin:cloudify-utilities-plugin
 
 inputs:
   infra_blueprint:
@@ -18,27 +17,20 @@ inputs:
       Inputs that will be passed on to the certified blueprint.
     default: {}
 
-  nodejs_deployment_id:
-    description: >
-      Name of NodeJS deployment to create.
-    type: string
-
   app_content:
     type: string
     default: 'resources/index.html'
 
 node_templates:
   nodejs:
-    type: cloudify.nodes.DeploymentProxy
+    type: cloudify.nodes.Component
     properties:
       resource_config:
         blueprint:
           id: { get_input: infra_blueprint }
           external_resource: true
         deployment:
-          id: { get_input: nodejs_deployment_id }
           inputs: { get_input: infra_inputs }
-          all_outputs: true
 
   app_content:
     type: cloudify.nodes.ApplicationModule
@@ -48,9 +40,9 @@ node_templates:
           implementation: scripts/ftp-upload.sh
           executor: central_deployment_agent
           inputs:
-            username: { get_attribute: [ nodejs, deployment, outputs, username ] }
-            password:  { get_attribute: [ nodejs, deployment, outputs, password ] }
-            endpoint:  { get_attribute: [ nodejs, deployment, outputs, endpoint ] }
+            username: { get_capability: [ { get_attribute: [ nodejs, deployment, id ] }, username ] }
+            password: { get_capability: [ { get_attribute: [ nodejs, deployment, id ] }, password ] }
+            endpoint: { get_capability: [ { get_attribute: [ nodejs, deployment, id ] }, endpoint ] }
             resource_path: { get_input: app_content }
     relationships:
       - type: cloudify.relationships.depends_on
@@ -59,4 +51,4 @@ node_templates:
 outputs:
   base_url:
     description: Application URL
-    value: { get_attribute: [ nodejs, deployment, outputs, base_url ] }
+    value: { get_capability: [ { get_attribute: [ nodejs, deployment, id ] }, base_url ] }

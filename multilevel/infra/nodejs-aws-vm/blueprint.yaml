@@ -233,7 +233,7 @@ node_templates:
       - target: nodejs
         type: cloudify.relationships.depends_on
 
-outputs:
+capabilities:
   username:
     value: { get_input: ftp_username }
   password:

@@ -88,7 +88,7 @@ node_templates:
         linuxFxVersion: { get_input: linux_fx_version }
       template_file: templates/nodejs.json
 
-outputs:
+capabilities:
   username:
     value: { concat: [ { get_input: resource_name_prefix }, 'app' ] }
   password:
