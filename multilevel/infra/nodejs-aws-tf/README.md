@@ -32,6 +32,8 @@ that are assumed to exist. Note that most secrets are not required if inputs are
 
 Also:
 
-* `terraform_storage_path`: should point to a directory, on Cloudify Manager, where the Terraform plugin
-should store downloaded templates. This directory must either already exist, or be create-able by Cloudify's
-user (`cfyuser`).
+* `terraform_plugins_dir`: Directory where Terraform plugins are located. Set this secret to an empty string in order
+for plugins to be downloaded on-the-fly.
+* `terraform_storage_path`: Directory to use for Terraform temporary storage. Set this secret to an empty string in order
+to use the operating system's default temporary files' directory.
+ 
