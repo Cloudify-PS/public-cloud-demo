@@ -29,3 +29,9 @@ The Terraform executable must be available on the Cloudify Manager machine. By d
 
 See [Common AWS Secrets](../README.md#common-aws-secrets) and [Common Secrets](../README.md#common-secrets) for secrets
 that are assumed to exist. Note that most secrets are not required if inputs are provided.
+
+Also:
+
+* `terraform_storage_path`: should point to a directory, on Cloudify Manager, where the Terraform plugin
+should store downloaded templates. This directory must either already exist, or be create-able by Cloudify's
+user (`cfyuser`).

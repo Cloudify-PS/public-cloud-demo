@@ -97,6 +97,7 @@ node_templates:
     type: cloudify.nodes.terraform.Module
     properties:
       executable_path: { get_input: terraform_executable }
+      storage_path: { get_secret: terraform_storage_path }
       resource_config:
         environment_variables:
           AWS_ACCESS_KEY_ID: { get_input: aws_access_key_id }
