@@ -1,0 +1,72 @@
+[
+  {
+    "id": "pc-demo-app",
+    "name": "pc-demo-app",
+    "description": "Public cloud demo: simple application",
+    "html_url": "https://github.com/cloudify-examples/pc-demo-app",
+    "zip_url": "https://github.com/cloudify-examples/pc-demo-app/archive/master.zip",
+    "readme_url": "https://raw.githubusercontent.com/cloudify-examples/pc-demo-app/master/README.md",
+    "created_at": "2019-08-27T00:00:00Z",
+    "updated_at": "2019-08-27T00:00:00Z"
+  },
+  {
+    "id": "pc-demo-nodejs-openstack",
+    "name": "pc-demo-nodejs-openstack",
+    "description": "Public cloud demo: OpenStack infrastructure",
+    "html_url": "https://github.com/cloudify-examples/pc-demo-nodejs-openstack",
+    "zip_url": "https://github.com/cloudify-examples/pc-demo-nodejs-openstack/archive/master.zip",
+    "readme_url": "https://raw.githubusercontent.com/cloudify-examples/pc-demo-nodejs-openstack/master/README.md",
+    "created_at": "2019-08-27T00:00:00Z",
+    "updated_at": "2019-08-27T00:00:00Z"
+  },
+  {
+    "id": "pc-demo-nodejs-azure-vm-arm",
+    "name": "pc-demo-nodejs-azure-vm-arm",
+    "description": "Public cloud demo: Azure infrastructure using ARM",
+    "html_url": "https://github.com/cloudify-examples/pc-demo-nodejs-azure-vm-arm",
+    "zip_url": "https://github.com/cloudify-examples/pc-demo-nodejs-azure-vm-arm/archive/master.zip",
+    "readme_url": "https://raw.githubusercontent.com/cloudify-examples/pc-demo-nodejs-azure-vm-arm/master/README.md",
+    "created_at": "2019-08-27T00:00:00Z",
+    "updated_at": "2019-08-27T00:00:00Z"
+  },
+  {
+    "id": "pc-demo-nodejs-azure-vm",
+    "name": "pc-demo-nodejs-azure-vm",
+    "description": "Public cloud demo: Azure infrastructure using plugin types",
+    "html_url": "https://github.com/cloudify-examples/pc-demo-nodejs-azure-vm",
+    "zip_url": "https://github.com/cloudify-examples/pc-demo-nodejs-azure-vm/archive/master.zip",
+    "readme_url": "https://raw.githubusercontent.com/cloudify-examples/pc-demo-nodejs-azure-vm/master/README.md",
+    "created_at": "2019-08-27T00:00:00Z",
+    "updated_at": "2019-08-27T00:00:00Z"
+  },
+  {
+    "id": "pc-demo-nodejs-azure-appservice",
+    "name": "pc-demo-nodejs-azure-appservice",
+    "description": "Public cloud demo: Azure infrastructure using App Services",
+    "html_url": "https://github.com/cloudify-examples/pc-demo-nodejs-azure-appservice",
+    "zip_url": "https://github.com/cloudify-examples/pc-demo-nodejs-azure-appservice/archive/master.zip",
+    "readme_url": "https://raw.githubusercontent.com/cloudify-examples/pc-demo-nodejs-azure-appservice/master/README.md",
+    "created_at": "2019-08-27T00:00:00Z",
+    "updated_at": "2019-08-27T00:00:00Z"
+  },
+  {
+    "id": "pc-demo-nodejs-aws-vm",
+    "name": "pc-demo-nodejs-aws-vm",
+    "description": "Public cloud demo: AWS infrastructure using plugin types",
+    "html_url": "https://github.com/cloudify-examples/pc-demo-nodejs-aws-vm",
+    "zip_url": "https://github.com/cloudify-examples/pc-demo-nodejs-aws-vm/archive/master.zip",
+    "readme_url": "https://raw.githubusercontent.com/cloudify-examples/pc-demo-nodejs-aws-vm/master/README.md",
+    "created_at": "2019-08-27T00:00:00Z",
+    "updated_at": "2019-08-27T00:00:00Z"
+  },
+  {
+    "id": "pc-demo-nodejs-aws-tf",
+    "name": "pc-demo-nodejs-aws-tf",
+    "description": "Public cloud demo: AWS infrastructure using Terraform",
+    "html_url": "https://github.com/cloudify-examples/pc-demo-nodejs-aws-tf",
+    "zip_url": "https://github.com/cloudify-examples/pc-demo-nodejs-aws-tf/archive/master.zip",
+    "readme_url": "https://raw.githubusercontent.com/cloudify-examples/pc-demo-nodejs-aws-tf/master/README.md",
+    "created_at": "2019-08-27T00:00:00Z",
+    "updated_at": "2019-08-27T00:00:00Z"
+  }
+]
